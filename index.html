@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BeautyVault - Seu Catálogo de Maquiagem</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <h2>BeautyVault</h2>
+            <button class="menu-toggle" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></button>
+        </div>
+        
+        <ul class="nav-links" id="nav-links-menu">
+            <li class="active" onclick="switchPage('inicio')">
+                <i class="fa-solid fa-house"></i> Início
+            </li>
+            <li onclick="switchPage('colecao')">
+                <i class="fa-solid fa-spray-can"></i> Coleção
+            </li>
+            <li onclick="switchPage('desejos')">
+                <i class="fa-solid fa-heart"></i> Desejos
+            </li>
+        </ul>
+
+        <div class="user-profile">
+            <div class="avatar">💖</div>
+            <span>Olá, Ana! ♡</span>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        
+        <section id="page-inicio" class="page active">
+            <div class="welcome-banner">
+                <h1>Bem-vinda de volta, Ana! ♡</h1>
+                <p>Que bom te ver por aqui!</p>
+            </div>
+
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <span class="stat-number" id="count-produtos">0</span>
+                        <span class="stat-label">Produtos</span>
+                    </div>
+                    <i class="fa-solid fa-lipstick icon-pink"></i>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <span class="stat-number" id="count-favoritos">0</span>
+                        <span class="stat-label">Favoritos</span>
+                    </div>
+                    <i class="fa-solid fa-heart icon-red"></i>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <span class="stat-number" id="count-desejos">0</span>
+                        <span class="stat-label">Desejos</span>
+                    </div>
+                    <i class="fa-solid fa-bag-shopping icon-purple"></i>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <h3>Gerenciamento de Dados</h3>
+                <p style="font-size: 14px; color: #8A7A8F; margin-top: 5px;">
+                    ✨ Seu catálogo está integrado ao Google Sheets! Adicione ou modifique suas maquiagens diretamente por lá para ver as mudanças aqui.
+                </p>
+            </div>
+        </section>
+
+        <section id="page-colecao" class="page">
+            <div class="page-header">
+                <h2>Minha Coleção</h2>
+            </div>
+            <div class="products-grid" id="products-grid">
+                <p class="empty-message">Nenhum produto cadastrado na planilha ainda.</p>
+            </div>
+        </section>
+
+        <section id="page-desejos" class="page">
+            <div class="page-header">
+                <h2>Lista de Desejos</h2>
+            </div>
+            
+            <div class="table-container">
+                <table class="wishlist-table">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Marca</th>
+                            <th>Preço</th>
+                            <th>Prioridade</th>
+                            <th>Loja</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wishlist-table-body"></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Links TSV sincronizados com o seu Google Sheets
+        const LINK_TSV_COLECAO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSZjaEjtP5U9xTTa6kwbTZSsYE6_fE1KTmb1mV-nEMqaWroWCGL_j70v4Ded18v4hbl6E5cYHrwEgEg/pub?gid=0&single=true&output=tsv";
+        const LINK_TSV_DESEJOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSZjaEjtP5U9xTTa6kwbTZSsYE6_fE1KTmb1mV-nEMqaWroWCGL_j70v4Ded18v4hbl6E5cYHrwEgEg/pub?gid=414274024&single=true&output=tsv"; // Nota: Ajustado o gid para a segunda aba se necessário
+
+        let minhaColecao = [];
+        let minhaListaDesejos = [];
+
+        // Função que busca os dados na nuvem da sua planilha
+        async function carregarDadosDaPlanilha() {
+            try {
+                // 1. Puxa dados da Coleção
+                const respostaColecao = await fetch(LINK_TSV_COLECAO);
+                const textoColecao = await respostaColecao.text();
+                minhaColecao = tsvParaObjeto(textoColecao);
+
+                // 2. Puxa dados dos Desejos
+                const respostaDesejos = await fetch(LINK_TSV_DESEJOS);
+                const textoDesejos = await respostaDesejos.text();
+                minhaListaDesejos = tsvParaObjeto(textoDesejos);
+
+                atualizarTela();
+            } catch (erro) {
+                console.error("Erro ao puxar dados da planilha:", erro);
+            }
+        }
+
+        // Converte o texto plano do Sheets (TSV) em objetos lidos pelo JavaScript
+        function tsvParaObjeto(tsvText) {
+            const linhas = tsvText.split('\n').map(linha => linha.replace('\r', ''));
+            const cabecalhos = linhas[0].split('\t').map(c => c.trim().toLowerCase());
+            const resultado = [];
+
+            for (let i = 1; i < linhas.length; i++) {
+                if (!linhas[i].trim()) continue;
+                const colunas = linhas[i].split('\t');
+                const obj = {};
+                
+                cabecalhos.forEach((cabecalho, index) => {
+                    let valor = colunas[index] ? colunas[index].trim() : '';
+                    
+                    if (cabecalho === 'preco' || cabecalho === 'nota') {
+                        valor = Number(valor.replace(',', '.')) || 0;
+                    }
+                    if (cabecalho === 'favorito') {
+                        valor = valor.toLowerCase() === 'true' || valor === '1';
+                    }
+                    
+                    obj[cabecalho] = valor;
+                });
+                resultado.push(obj);
+            }
+            return resultado;
+        }
+
+        // Navegação entre abas
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
+            
+            document.getElementById('page-' + pageId).classList.add('active');
+            
+            const activeLi = event.target.closest('li');
+            if (activeLi) activeLi.classList.add('active');
+
+            if(window.innerWidth <= 768) {
+                document.getElementById('nav-links-menu').classList.remove('open');
+            }
+        }
+
+        function toggleMobileMenu() {
+            document.getElementById('nav-links-menu').classList.toggle('open');
+        }
+
+        // Atualiza dinamicamente todo o visual do BeautyVault
+        function atualizarTela() {
+            document.getElementById('count-produtos').innerText = minhaColecao.length;
+            document.getElementById('count-favoritos').innerText = minhaColecao.filter(p => p.favorito).length;
+            document.getElementById('count-desejos').innerText = minhaListaDesejos.length;
+
+            // Renderizar a Coleção de Produtos
+            const grid = document.getElementById('products-grid');
+            grid.innerHTML = '';
+            if (minhaColecao.length === 0) {
+                grid.innerHTML = `<p class="empty-message">Nenhum produto cadastrado na planilha ainda.</p>`;
+            } else {
+                minhaColecao.forEach(prod => {
+                    let estrelasHtml = '';
+                    let notaValida = Math.min(Math.max(parseInt(prod.nota) || 0, 0), 5);
+                    for (let i = 1; i <= 5; i++) {
+                        estrelasHtml += i <= notaValida ? `<i class="fa-solid fa-star text-gold"></i>` : `<i class="fa-regular fa-star text-gold"></i>`;
+                    }
+                    
+                    let estiloThumb = prod.foto ? `style="background-image: url('${prod.foto}'); background-size: cover; background-position: center;"` : '';
+                    let hasImgClass = prod.foto ? 'has-image' : '';
+
+                    grid.innerHTML += `
+                        <div class="product-card">
+                            <div class="product-thumb ${hasImgClass}" ${estiloThumb}>
+                                <span class="product-category-tag">${prod.categoria || 'Maquiagem'}</span>
+                                <button class="fav-btn ${prod.favorito ? 'is-fav' : ''}"><i class="${prod.favorito ? 'fa-solid' : 'fa-regular'} fa-heart"></i></button>
+                            </div>
+                            <div class="product-details">
+                                <span class="product-brand">${prod.marca || ''}</span>
+                                <h4 class="product-title">${prod.nome || 'Sem Nome'}</h4>
+                                <div class="product-price">R$ ${(Number(prod.preco) || 0).toFixed(2).replace('.', ',')}</div>
+                                <div class="product-rating">${estrelasHtml}</div>
+                            </div>
+                        </div>`;
+                });
+            }
+
+            // Renderizar a Lista de Desejos
+            const tableBody = document.getElementById('wishlist-table-body');
+            tableBody.innerHTML = '';
+            if (minhaListaDesejos.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#8A7A8F; font-style:italic;">Sua lista de desejos está vazia na planilha. ✨</td></tr>`;
+            } else {
+                minhaListaDesejos.forEach(wish => {
+                    let prioridade = wish.prioridade || 'Média';
+                    let classePrioridade = prioridade === 'Alta' ? 'badge-alta' : (prioridade === 'Média' ? 'badge-media' : 'badge-baixa');
+                    let miniFotoHtml = wish.foto ? `<img src="${wish.foto}" class="table-mini-thumb" alt="Foto">` : `<div class="table-mini-thumb-empty">✨</div>`;
+
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td style="font-weight: 500; display: flex; align-items: center; gap: 10px;">
+                                ${miniFotoHtml}
+                                <span>${wish.nome || 'Sem Nome'}</span>
+                            </td>
+                            <td>${wish.marca || ''}</td>
+                            <td>R$ ${(Number(wish.preco) || 0).toFixed(2).replace('.', ',')}</td>
+                            <td><span class="badge-prioridade ${classePrioridade}">${prioridade}</span></td>
+                            <td>${wish.loja || 'Não informada'}</td>
+                        </tr>`;
+                });
+            }
+        }
+
+        // Executa a busca assim que abrir o navegador
+        window.onload = function() {
+            carregarDadosDaPlanilha();
+        }
+    </script>
+</body>
+</html>
